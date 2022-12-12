@@ -122,14 +122,14 @@ ggplot( data = melted_cormat, aes( Var2 , Var1 , fill = value ) )+
 lpmmen <- feols( stroke ~ gender , data = df , vcov = 'hetero' )
 df$predmen <- predict( lpmmen )
 
-gmen <- ggplot(data = df) +
+gw <- ggplot(data = df) +
   geom_point(aes(x = gender, y = predmen), size = 1, shape = 16) +
   geom_line(aes(x = gender, y = predmen),  size=0.7) +
   labs(x = "Gender",y = "Predicted probability of having stroke")+
   coord_cartesian(xlim = c(0, 1), ylim=c(0,0.1)) +
   theme_light() + 
   ggtitle("Figure 1 : Men's Probablility of getting stroke")
-gmen
+gw
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -148,9 +148,82 @@ gmar
 ```
 
 ```{r message=FALSE, warning=FALSE}
+# Model 0, estimation table of stroke, by gender and marriage
 summary0 <- etable( lpmmen , lpmmar ,
         se.below = T,
         coefstat = 'se',
-        fitstat = c('n','r2'))
+        fitstat = c('n','r2'), 
+        dict=c("gender" = "Men", "ever_married" = "Married"))
 summary0
 ```
+
+```{r message=FALSE, warning=FALSE}
+lpm0 <- lm(stroke ~ gender, data=df)
+logit0 <- glm(stroke ~ gender, data=df, family = binomial ( link = "logit"))
+probit0 <- glm(stroke ~ gender, data=df, family=binomial(link="probit"))
+```
+
+```{r message=FALSE, warning=FALSE}
+model_formula1 <- formula(stroke ~ gender + ever_married)
+lpm1 <-lm(model_formula1, data=df, vcov = "hetreo")
+logit1 <- glm(model_formula1, data=df, family = binomial ( link = "logit"))
+probit1 <- glm(model_formula1, data=df, family=binomial(link="probit"))
+```
+
+```{r message=FALSE, warning=FALSE}
+model_formula2 <- formula(stroke ~ gender + ever_married + age)
+lpm2 <-lm(model_formula2, data=df, vcov = "hetreo")
+logit2 <- glm(model_formula2, data=df, family = binomial ( link = "logit"))
+probit2 <- glm(model_formula2, data=df, family=binomial(link="probit"))
+```
+
+```{r message=FALSE, warning=FALSE}
+
+# Model 3
+model_formula3 <- formula(stroke ~ gender + ever_married + age + avg_glucose_level + smoking_status)
+
+lpm3 <-lm(model_formula3, data=df, vcov = "hetreo")
+df$pred_lpm3 <- predict(lpm3)
+
+
+# Logit coefficients
+
+logit3 <- glm(model_formula3, data=df, family = binomial ( link = "logit"))
+
+# Predicted probabilities 
+df$pred_logit3 <- predict.glm(logit3, type="response")
+
+
+# Logit marginal differences
+library(mfx)
+logit_marg3 <- logitmfx(model_formula3, data=df, atmean=FALSE, robust = T)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+# Probit coefficients
+probit3 <- glm(model_formula3, data=df, family=binomial(link="probit"))
+
+# Predicted probabilities 
+df$pred_probit3<- predict.glm(probit3, type="response") 
+
+# Probit marginal differences
+probit_marg3 <- probitmfx(model_formula3, data=df, atmean=FALSE, robust = T)
+```
+
+```{r message=FALSE, warning=FALSE}
+glance_custom.glm <- function(x) data.frame(`PseudoR2` = pR2(x)["McFadden"])
+cm <- c('(Intercept)' = 'Constant')
+
+summary1 <- msummary(list("(M0) logit" = logit0, "(M0) Probit" = probit0, "(M1) logit" = logit1, "(M1) Probit" =  probit1, "(M2) logit" = logit2,"(M2) Probit" = probit2, "(M3) logit" = logit3,"(M3) Probit" = probit3),
+         fmt="%.3f",
+         gof_omit = 'DF|Deviance|Log.Lik.|F|R2 Adj.|AIC|BIC',
+         stars=c('*' = .05, '**' = .01),
+         coef_rename = cm, 
+         title = "Logit, Probit with Pseudo R2"
+)
+
+summary1
+```
+
+
