@@ -9,6 +9,21 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(httr)
 library(dplyr)
+library(AER)
+library(lspline)
+library(fixest)
+library(modelsummary)
+library(ggpubr)
+library(reshape2)
+library(kableExtra)
+library(ggplot2)
+library(tidyverse)
+library(haven)
+library(data.table)
+library(huxtable)
+library(pscl)
+library(patchwork)
+library(MASS)
 ```
 
 
@@ -130,4 +145,12 @@ gmar <- ggplot(data = df) +
   theme_light() + 
   ggtitle("Figure 2 : Married person Probablility of getting stroke")
 gmar
+```
+
+```{r message=FALSE, warning=FALSE}
+summary0 <- etable( lpmmen , lpmmar ,
+        se.below = T,
+        coefstat = 'se',
+        fitstat = c('n','r2'))
+summary0
 ```
