@@ -1,0 +1,54 @@
+---
+title: "Untitled"
+output: html_document
+date: "2022-11-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(httr)
+library(dplyr)
+```
+
+
+```{r}
+## read data set
+df <- read_csv("healthcare-dataset-stroke-data.csv")
+df <- df %>% drop_na()
+
+# removing one "Other" in the gender column
+df <- filter(df, df$gender != "Other")
+```
+
+
+```{r}
+#filter age group 18 or above, delete 5 rows which work_type == "never_worked"
+df <- df %>% filter(age > 17) %>%  
+  filter(work_type != "Never_worked")
+
+# transform column vlaues and binary values
+df$gender[df$gender == "Female"] <- 0
+df$gender[df$gender == "Male"] <- 1
+
+df$ever_married[df$ever_married == "Yes"] <- 1
+df$ever_married[df$ever_married == "No"] <- 0
+
+df$Residence_type[df$Residence_type == "Urban"] <- 1
+df$Residence_type[df$Residence_type == "Rural"] <- 0
+
+df$smoking_status[df$smoking_status == "smokes"] <- 1
+df$smoking_status[df$smoking_status == "formerly smoked"] <- 0
+df$smoking_status[df$smoking_status == "Unknown"] <- 0
+df$smoking_status[df$smoking_status == "never smoked"] <- 0
+
+df$work_type[df$work_type == "Private"] <- 1
+df$work_type[df$work_type == "Self-employed"] <- 1
+df$work_type[df$work_type == "Govt_job"] <- 0
+
+# transform the whole table to numeric
+df %>% mutate_if(is.character, as.numeric)
+
+```
+
+
