@@ -27,7 +27,7 @@ library(MASS)
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 ## read data set
 df <- read_csv("healthcare-dataset-stroke-data.csv")
 df <- df %>% drop_na()
@@ -37,7 +37,7 @@ df <- filter(df, df$gender != "Other")
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 #filter age group 18 or above, delete 5 rows which work_type == "never_worked"
 df <- df %>% filter(age > 17) %>%  
   filter(work_type != "Never_worked")
@@ -69,22 +69,27 @@ df$Residence_type <- as.numeric(df$Residence_type)
 df$smoking_status <- as.numeric(df$smoking_status)
 df$bmi <- as.numeric(df$bmi)
 
+# remove unnecassary columns
+drops <- c("id","hypertension","heart_disease","work_type","Residence_type","bmi")
+df <- df[ , !(names(df) %in% drops)]
+
+# rename columns
+colnames(df)[1:6] <- c("male", "age", "married", "avg_glucose_level", "smoker","stroke")
+
 ```
 
+# Summary Statisitcs
+The summary statistics table shows that 6% of the respondents have had stroke. 39% of the respondents are male, and 79% of the respondents are either married or have married before. The average age of the respondents is around 50 years old.
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 P95 <- function(x){quantile(x,0.95,na.rm=T)}
 P05 <- function(x){quantile(x,0.05,na.rm=T)}
 datasummary( (`Stroke` = stroke ) + 
-               (`Male` = gender) +
-               (`Married` = ever_married) +
+               (`Male` = male) +
+               (`Married` = married) +
                (`Age` = age) +
-               (`Heart Disease` = heart_disease) +
-               (`Private Work` = work_type) +
-               (`Living in Urban` = Residence_type) +
-               (`Smoker` = smoking_status) + 
-               (`BMI` = bmi) +
+               (`Smoker` = smoker) + 
                (`Glucose Level` = avg_glucose_level) ~
              Mean + Median + SD + Min + Max + P05 + P95 , 
              data = df ,
@@ -94,7 +99,11 @@ datasummary( (`Stroke` = stroke ) +
 
 ```
 
-```{r message=FALSE, warning=FALSE}
+# Correlation Matrix
+
+A correlation matrix is used to show a big picture of the association among dependent, independent and confounding variables. Correlation matrix is shown in the Appendix. The correlation matrix shows that having a stroke is positively correlated with male, age, married, average glucose level and smoker. While surprisingly, smokers and having stroke have almost no correlation, let see if it is really further in the case study.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Correlation matrix
 cT <- round( cor( df , use = "complete.obs") , 2 )
 # create a lower triangular matrix
@@ -102,7 +111,7 @@ cT[ upper.tri( cT ) ] <- NA
 # Put it into a tibble format
 melted_cormat <- melt( cT , na.rm = TRUE)
 # Now we can create a heat-map
-ggplot( data = melted_cormat, aes( Var2 , Var1 , fill = value ) )+
+corr_mat <- ggplot( data = melted_cormat, aes( Var2 , Var1 , fill = value ) )+
   geom_tile( color = "white" ) +
   scale_fill_gradient2(low = "navyblue", high = "darkgreen", 
                        midpoint = 0, limit = c(-1,1), space = "Lab", 
@@ -114,73 +123,96 @@ ggplot( data = melted_cormat, aes( Var2 , Var1 , fill = value ) )+
   coord_fixed() +
   ggtitle("Correlation Matrix")
 
-
 ```
 
-```{r message=FALSE, warning=FALSE}
+# Model
+
+The main hypothesis of this analysis is that men has higher chance of getting stroke. So a simple linear probability model with the chance of getting stroke as a dummy variable regressed on men (when the value = 1 in "men" column). Below are the probability models tested.
+
+## Model 0
+$$Stroke^P=\alpha+\beta( male ) $$
+$$Stroke^P=\alpha+\beta( married ) $$
+Table 1 in the appendix shows the probability of getting a stroke. Column 1 (lpmmen) indicates that male are 95% confident to have 1.04% more chance to get a stroke while comparing to a female, without considering other independent variables. Taking "married" as another independent variable is just for a reference, and see if there are anything special. From the second column we can see that being married can make a person double the chance (3.55% more) to have stroke than who has never married, without taking other independent variables into account. For graphical visualization, from Figure 2 we can see that the regression line is in upward slope, which means if the person is a man, his chance of getting stroke is higher. The same can be observed in Figure 3 for the relationship between married and the chance of getting stroke.
+
+## Model 1
+$$Stroke^P=\alpha+\beta_1( male )+\beta_2( married )$$
+As the R-squared of men shown in Table 1 is only 0.047%, it is too low to take it into account, and it means other independent variables are also affecting the probability of a person to get stroke. The logit and probit models are used instead of simple linear regression model. From Table 4, we can see that without taking any independent variables into account, the Pseudo R-squared of Model 0 (M0) is only 0.1%. Although it is already higher than the R-squared from simple linear regression, it is still not scaleable. While for the Pseudo R-squared for Model 1 (M1), both logit and probit model is 1.1%. This means the M1 regression model is more scaleable than M0, but still having a low R-squared.
+
+## Model 2
+
+$$Stroke^P=\alpha+\beta_1( male )+\beta_2( married ) +\beta_3( age )$$
+As we can see the darkest box in the correlation Matrix with stroke is the "age", so age is added as a control variable in Model 2 (M2). It can be seen from Table 4 that when the "age" is added as a control variable, the Pseudo R-squared increased by around 15% for both the logit and probit model, which means the scalability has improved by a lot, where we could possibly use this model as the preferred model for the analysis.
+
+## Model 3
+
+$$Stroke^P=\alpha+\beta_1( male )+\beta_2( married ) +\beta_3( age )  + \beta_4(glucose) + \beta_5( smoker)$$
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Prob of men getting stroke
-lpmmen <- feols( stroke ~ gender , data = df , vcov = 'hetero' )
+lpmmen <- feols( stroke ~ male , data = df , vcov = 'hetero' )
 df$predmen <- predict( lpmmen )
 
-gw <- ggplot(data = df) +
-  geom_point(aes(x = gender, y = predmen), size = 1, shape = 16) +
-  geom_line(aes(x = gender, y = predmen),  size=0.7) +
+g2 <- ggplot(data = df) +
+  geom_point(aes(x = male, y = predmen), size = 1, shape = 16) +
+  geom_line(aes(x = male, y = predmen),  size=0.7) +
   labs(x = "Gender",y = "Predicted probability of having stroke")+
   coord_cartesian(xlim = c(0, 1), ylim=c(0,0.1)) +
   theme_light() + 
-  ggtitle("Figure 1 : Men's Probablility of getting stroke")
-gw
+  ggtitle("Figure 2 : Men's Probablility of getting stroke")
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Prob of married person getting stroke
-lpmmar <- feols( stroke ~ ever_married , data = df , vcov = 'hetero' )
+lpmmar <- feols( stroke ~ married , data = df , vcov = 'hetero' )
 df$predmar <- predict( lpmmar )
 
-gmar <- ggplot(data = df) +
-  geom_point(aes(x = ever_married, y = predmar), size = 1, shape = 16) +
-  geom_line(aes(x = ever_married, y = predmar),  size=0.7) +
+g3 <- ggplot(data = df) +
+  geom_point(aes(x = married, y = predmar), size = 1, shape = 16) +
+  geom_line(aes(x = married, y = predmar),  size=0.7) +
   labs(x = "Marriage",y = "Predicted probability of having stroke")+
   coord_cartesian(xlim = c(0, 1), ylim=c(0,0.1)) +
   theme_light() + 
-  ggtitle("Figure 2 : Married person Probablility of getting stroke")
-gmar
+  ggtitle("Figure 3 : Married person Probablility of getting stroke")
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Model 0, estimation table of stroke, by gender and marriage
-summary0 <- etable( lpmmen , lpmmar ,
+tb4 <- kable(etable( lpmmen , lpmmar ,
+                          title = "Table 4: Models to uncover relation between Probability of Stroke and Male",
         se.below = T,
         coefstat = 'se',
         fitstat = c('n','r2'), 
-        dict=c("gender" = "Men", "ever_married" = "Married"))
-summary0
+        dict=c("gender" = "Men", "married" = "Married")))
 ```
 
-```{r message=FALSE, warning=FALSE}
-lpm0 <- lm(stroke ~ gender, data=df)
-logit0 <- glm(stroke ~ gender, data=df, family = binomial ( link = "logit"))
-probit0 <- glm(stroke ~ gender, data=df, family=binomial(link="probit"))
+```{r message=FALSE, warning=FALSE, include=FALSE}
+lpm0 <- lm(stroke ~ male, data=df)
+logit0 <- glm(stroke ~ male, data=df, family = binomial ( link = "logit"))
+probit0 <- glm(stroke ~ male, data=df, family=binomial(link="probit"))
 ```
 
-```{r message=FALSE, warning=FALSE}
-model_formula1 <- formula(stroke ~ gender + ever_married)
+
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+model_formula1 <- formula(stroke ~ male + married)
 lpm1 <-lm(model_formula1, data=df, vcov = "hetreo")
 logit1 <- glm(model_formula1, data=df, family = binomial ( link = "logit"))
 probit1 <- glm(model_formula1, data=df, family=binomial(link="probit"))
 ```
 
-```{r message=FALSE, warning=FALSE}
-model_formula2 <- formula(stroke ~ gender + ever_married + age)
+```{r message=FALSE, warning=FALSE, include=FALSE}
+model_formula2 <- formula(stroke ~ male + married + age)
 lpm2 <-lm(model_formula2, data=df, vcov = "hetreo")
 logit2 <- glm(model_formula2, data=df, family = binomial ( link = "logit"))
 probit2 <- glm(model_formula2, data=df, family=binomial(link="probit"))
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 
 # Model 3
-model_formula3 <- formula(stroke ~ gender + ever_married + age + avg_glucose_level + smoking_status)
+model_formula3 <- formula(stroke ~ male + married + age + avg_glucose_level + smoker)
 
 lpm3 <-lm(model_formula3, data=df, vcov = "hetreo")
 df$pred_lpm3 <- predict(lpm3)
@@ -200,7 +232,7 @@ logit_marg3 <- logitmfx(model_formula3, data=df, atmean=FALSE, robust = T)
 
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Probit coefficients
 probit3 <- glm(model_formula3, data=df, family=binomial(link="probit"))
 
@@ -226,4 +258,49 @@ summary1 <- msummary(list("(M0) logit" = logit0, "(M0) Probit" = probit0, "(M1) 
 summary1
 ```
 
+```{r message=FALSE, warning=FALSE}
+cm <- c('(Intercept)' = 'Constant')
+summary2 <- msummary(list("(1)LPM" = lpm3, "(2) logit coeffs" = logit3, "(3) logit Marg" = logit_marg3, "(4) Probit" = probit3, "(5) Probit Marg" = probit_marg3),
+         fmt="%.3f",
+         gof_omit = 'DF|Deviance|Log.Lik.|F|R2 Adj.|AIC|BIC|R2|PseudoR2',
+         stars=c('*' = .05, '**' = .01),
+         coef_rename = cm,
+         title = "The Probability of Loan Approval across races- LPM, Logit, and Probit models"
+)
+
+summary2
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+g1 <- ggplot(data = df) +
+  geom_point(aes(x=pred_lpm3, y=pred_probit3, color="Probit"), size=0.5,  shape=16) +
+  geom_point(aes(x=pred_lpm3, y=pred_logit3,  color="Logit"), size=0.5,  shape=16) +
+  geom_line(aes(x=pred_lpm3, y=pred_lpm3,    color="45 Degree line"), size=0.5) +
+  labs(x = "Predicted probability of Highly Rated (LPM)", y="Predicted probability")+
+  scale_color_manual(name = "", values=c("#541352FF", "#3a5e8cFF","#10a53dFF")) +
+  theme_bw() +
+theme(legend.position=c(0.6,0.25),
+        legend.direction = "horizontal",
+        legend.text = element_text(size = 6)) + 
+  ggtitle("Figure 8 : Predicted Probability of LPM, Logit and Probit Models" ) +
+ theme(plot.title = element_text(size = 10), axis.title = element_text(size=8) )  
+
+g1
+```
+
+# Appendix
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+corr_mat
+```
+
+```{r echo=FALSE, fig.show="hold", message=FALSE, warning=FALSE, out.width="50%"}
+g2
+g3
+```
+
+Table 4
+```{r message=FALSE, warning=FALSE}
+kableExtra::kable_styling(tb4, position = "center",full_width = FALSE)
+```
 
