@@ -103,15 +103,31 @@ ggplot( data = melted_cormat, aes( Var2 , Var1 , fill = value ) )+
 ```
 
 ```{r message=FALSE, warning=FALSE}
-lpmm <- feols( stroke ~ gender , data = df , vcov = 'hetero' )
-df$predm <- predict( lpmm )
+# Prob of men getting stroke
+lpmmen <- feols( stroke ~ gender , data = df , vcov = 'hetero' )
+df$predmen <- predict( lpmmen )
 
-gw <- ggplot(data = df) +
-  geom_point(aes(x = gender, y = predm), size = 1, shape = 16) +
-  geom_line(aes(x = gender, y = predm),  size=0.7) +
+gmen <- ggplot(data = df) +
+  geom_point(aes(x = gender, y = predmen), size = 1, shape = 16) +
+  geom_line(aes(x = gender, y = predmen),  size=0.7) +
   labs(x = "Gender",y = "Predicted probability of having stroke")+
   coord_cartesian(xlim = c(0, 1), ylim=c(0,0.1)) +
   theme_light() + 
   ggtitle("Figure 1 : Men's Probablility of getting stroke")
-gw
+gmen
+```
+
+```{r message=FALSE, warning=FALSE}
+# Prob of married person getting stroke
+lpmmar <- feols( stroke ~ ever_married , data = df , vcov = 'hetero' )
+df$predmar <- predict( lpmmar )
+
+gmar <- ggplot(data = df) +
+  geom_point(aes(x = ever_married, y = predmar), size = 1, shape = 16) +
+  geom_line(aes(x = ever_married, y = predmar),  size=0.7) +
+  labs(x = "Marriage",y = "Predicted probability of having stroke")+
+  coord_cartesian(xlim = c(0, 1), ylim=c(0,0.1)) +
+  theme_light() + 
+  ggtitle("Figure 2 : Married person Probablility of getting stroke")
+gmar
 ```
