@@ -47,8 +47,57 @@ df$work_type[df$work_type == "Self-employed"] <- 1
 df$work_type[df$work_type == "Govt_job"] <- 0
 
 # transform the whole table to numeric
-df %>% mutate_if(is.character, as.numeric)
+df$gender <- as.numeric(df$gender)
+df$ever_married <- as.numeric(df$ever_married)
+df$work_type <- as.numeric(df$work_type)
+df$Residence_type <- as.numeric(df$Residence_type)
+df$smoking_status <- as.numeric(df$smoking_status)
+df$bmi <- as.numeric(df$bmi)
 
 ```
 
 
+```{r}
+
+P95 <- function(x){quantile(x,0.95,na.rm=T)}
+P05 <- function(x){quantile(x,0.05,na.rm=T)}
+datasummary( (`Stroke` = stroke ) + 
+               (`Male` = gender) +
+               (`Married` = ever_married) +
+               (`Age` = age) +
+               (`Heart Disease` = heart_disease) +
+               (`Private Work` = work_type) +
+               (`Living in Urban` = Residence_type) +
+               (`Smoker` = smoking_status) + 
+               (`BMI` = bmi) +
+               (`Glucose Level` = avg_glucose_level) ~
+             Mean + Median + SD + Min + Max + P05 + P95 , 
+             data = df ,
+             title = 'Descriptive statistics') %>% 
+      kable_styling(latex_options = c("HOLD_position","scale_down"))
+
+
+```
+
+```{r message=FALSE, warning=FALSE}
+# Correlation matrix
+cT <- round( cor( df , use = "complete.obs") , 2 )
+# create a lower triangular matrix
+cT[ upper.tri( cT ) ] <- NA
+# Put it into a tibble format
+melted_cormat <- melt( cT , na.rm = TRUE)
+# Now we can create a heat-map
+ggplot( data = melted_cormat, aes( Var2 , Var1 , fill = value ) )+
+  geom_tile( color = "white" ) +
+  scale_fill_gradient2(low = "navyblue", high = "darkgreen", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Correlation") +
+  theme_bw()+ 
+  theme( axis.text.x = element_text(angle = 45, vjust = 1, 
+                                    size = 10, hjust = 1))+
+  labs(y="",x="")+
+  coord_fixed() +
+  ggtitle("Correlation Matrix")
+
+
+```
