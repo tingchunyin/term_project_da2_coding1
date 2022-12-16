@@ -4,7 +4,7 @@ author: Hugo TING
 output: pdf_document
 date: "2022-12-14"
 ---
-Please find the link to my GitHub repo [**here**]("https://github.com/tingchunyin/term_project_da2_coding1")
+Please find the link to my GitHub repo [**here**](https://github.com/tingchunyin/term_project_da2_coding1)
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
